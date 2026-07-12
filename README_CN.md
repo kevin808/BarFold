@@ -8,6 +8,7 @@
 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+[![许可证](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![构建 BarFold](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
 
 </div>
@@ -101,13 +102,13 @@ BARFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 
 - 推送代码和提交 Pull Request 时，以“警告视为错误”的方式编译，打包应用，验证签名和 ZIP，并上传 Actions 构建产物。
 - 推送符合 `v*` 格式的标签时，自动创建或更新 GitHub Release，并附加 ZIP。
-- 标签必须与 `CFBundleShortVersionString` 一致。例如应用版本为 `0.5.4` 时，标签必须为 `v0.5.4`。
+- 标签必须与 `CFBundleShortVersionString` 一致。例如应用版本为 `0.5.5` 时，标签必须为 `v0.5.5`。
 
 配置 GitHub 远程仓库后，可通过以下命令发布：
 
 ```bash
 git push origin main
-git push origin v0.5.4
+git push origin v0.5.5
 ```
 
 默认的 GitHub 托管构建使用 ad-hoc 签名。若需要让公开下载版本免除 Gatekeeper 提示，应使用 Developer ID Application 证书，并在默认流程之外增加 Apple 公证步骤。
@@ -130,3 +131,9 @@ git push origin v0.5.4
 - 第二行点击行为用于打开应用或偏好设置，不会复现每个应用的原生状态菜单。
 
 报告移动或打开失败时，请提供 macOS 版本、BarFold 版本、受影响的应用名称，以及相关诊断日志片段。
+
+## 版权与许可证
+
+Copyright 2026 BarFold contributors.
+
+本项目基于 [Apache License 2.0](LICENSE) 开源。你可以在遵守该许可证条款的前提下使用、修改和分发本项目。

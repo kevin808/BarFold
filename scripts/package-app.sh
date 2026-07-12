@@ -13,6 +13,7 @@ rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BUILD_DIR/$APP_NAME" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp "$ROOT/Support/Info.plist" "$APP_DIR/Contents/Info.plist"
+cp "$ROOT/LICENSE" "$APP_DIR/Contents/Resources/LICENSE"
 for localization in "$ROOT"/Support/*.lproj; do
     [[ -d "$localization" ]] || continue
     cp -R "$localization" "$APP_DIR/Contents/Resources/"

@@ -8,6 +8,7 @@ English | [简体中文](README_CN.md) | [日本語](README_JA.md)
 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black?logo=apple)
 ![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Build BarFold](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
 
 </div>
@@ -101,13 +102,13 @@ The workflow in [`.github/workflows/build.yml`](.github/workflows/build.yml) is 
 
 - Pushes and pull requests compile with warnings treated as errors, package the app, verify the signature and ZIP, and upload a workflow artifact.
 - Tags matching `v*` create or update a GitHub Release with the ZIP attached.
-- A tag must match `CFBundleShortVersionString`; for example, app version `0.5.4` requires tag `v0.5.4`.
+- A tag must match `CFBundleShortVersionString`; for example, app version `0.5.5` requires tag `v0.5.5`.
 
 To publish a release after configuring the GitHub remote:
 
 ```bash
 git push origin main
-git push origin v0.5.4
+git push origin v0.5.5
 ```
 
 GitHub-hosted builds are ad-hoc signed unless a signing certificate is added to the workflow. For frictionless public distribution, use a Developer ID Application certificate and notarize the release outside the default workflow.
@@ -130,3 +131,9 @@ Logs remain on the Mac and are never uploaded by BarFold. The log rotates at 1 M
 - Second-row clicks open applications or preferences; BarFold does not reproduce each app's native status menu.
 
 When reporting a move or launch failure, include the macOS version, BarFold version, affected app name, and the relevant diagnostic-log excerpt.
+
+## License
+
+Copyright 2026 BarFold contributors.
+
+Licensed under the [Apache License, Version 2.0](LICENSE). You may use, modify, and distribute this project under the terms of that license.
