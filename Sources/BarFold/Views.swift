@@ -10,13 +10,6 @@ struct ShelfView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "rectangle.split.2x1")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 24, height: 32)
-
-            Divider().frame(height: 24)
-
             content
 
             Divider().frame(height: 24)
