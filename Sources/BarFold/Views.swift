@@ -194,6 +194,24 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                Menu {
+                    ForEach(AppLanguage.allCases) { language in
+                        Button {
+                            model.appLanguage = language
+                        } label: {
+                            if model.appLanguage == language {
+                                Label(model.languageName(language), systemImage: "checkmark")
+                            } else {
+                                Text(model.languageName(language))
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "globe")
+                }
+                .menuIndicator(.hidden)
+                .help(model.text(.language))
+                .accessibilityLabel(model.text(.language))
                 Button {
                     model.revealDiagnosticLog()
                 } label: {
@@ -222,23 +240,10 @@ struct SettingsView: View {
 
             Divider()
 
-            VStack(spacing: 12) {
-                HStack {
-                    Label(model.text(.language), systemImage: "globe")
-                    Spacer()
-                    Picker("", selection: $model.appLanguage) {
-                        ForEach(AppLanguage.allCases) { language in
-                            Text(model.languageName(language)).tag(language)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 180)
-                }
-                Toggle(model.text(.launchAtLogin), isOn: Binding(
-                    get: { model.launchAtLogin },
-                    set: { model.setLaunchAtLogin($0) }
-                ))
-            }
+            Toggle(model.text(.launchAtLogin), isOn: Binding(
+                get: { model.launchAtLogin },
+                set: { model.setLaunchAtLogin($0) }
+            ))
             .toggleStyle(.switch)
             .padding(20)
         }
