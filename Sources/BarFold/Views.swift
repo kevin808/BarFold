@@ -208,21 +208,30 @@ struct SettingsView: View {
                     }
                 } label: {
                     Image(systemName: "globe")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 38, height: 28)
                 }
+                .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
+                .frame(width: 38, height: 28)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .fixedSize()
                 .help(model.text(.language))
                 .accessibilityLabel(model.text(.language))
                 Button {
                     model.revealDiagnosticLog()
                 } label: {
-                    Image(systemName: "doc.text.magnifyingglass")
+                    SettingsToolbarIcon(symbol: "doc.text.magnifyingglass")
                 }
+                .buttonStyle(.plain)
                 .help(model.text(.showDiagnosticLog))
                 Button {
                     model.scan()
                 } label: {
-                    Image(systemName: "arrow.clockwise")
+                    SettingsToolbarIcon(symbol: "arrow.clockwise")
                 }
+                .buttonStyle(.plain)
                 .help(model.text(.refresh))
             }
             .padding(20)
@@ -315,5 +324,17 @@ struct SettingsView: View {
             .frame(width: 38)
         }
         .padding(.vertical, 5)
+    }
+}
+
+private struct SettingsToolbarIcon: View {
+    let symbol: String
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .medium))
+            .frame(width: 38, height: 28)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
