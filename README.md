@@ -102,13 +102,13 @@ The workflow in [`.github/workflows/build.yml`](.github/workflows/build.yml) is 
 
 - Pushes and pull requests compile with warnings treated as errors, package the app, verify the signature and ZIP, and upload a workflow artifact.
 - Tags matching `v*` create or update a GitHub Release with the ZIP attached.
-- A tag must match `CFBundleShortVersionString`; for example, app version `0.5.5` requires tag `v0.5.5`.
+- A tag must match `CFBundleShortVersionString`; for example, app version `0.5.6` requires tag `v0.5.6`.
 
 To publish a release after configuring the GitHub remote:
 
 ```bash
 git push origin main
-git push origin v0.5.5
+git push origin v0.5.6
 ```
 
 GitHub-hosted builds are ad-hoc signed unless a signing certificate is added to the workflow. For frictionless public distribution, use a Developer ID Application certificate and notarize the release outside the default workflow.

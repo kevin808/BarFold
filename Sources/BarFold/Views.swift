@@ -187,38 +187,25 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("BarFold")
-                        .font(.system(size: 22, weight: .semibold))
+                    HStack(spacing: 8) {
+                        Text("BarFold")
+                            .font(.system(size: 22, weight: .semibold))
+                        Text("v\(appVersion) beta")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                .quaternary,
+                                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            )
+                    }
                     Text(model.text(.settingsSubtitle))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Menu {
-                    ForEach(AppLanguage.allCases) { language in
-                        Button {
-                            model.appLanguage = language
-                        } label: {
-                            if model.appLanguage == language {
-                                Label(model.languageName(language), systemImage: "checkmark")
-                            } else {
-                                Text(model.languageName(language))
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "globe")
-                        .font(.system(size: 13, weight: .medium))
-                        .frame(width: 38, height: 28)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .frame(width: 38, height: 28)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .fixedSize()
-                .help(model.text(.language))
-                .accessibilityLabel(model.text(.language))
+                SettingsLanguageButton(model: model)
                 Button {
                     model.revealDiagnosticLog()
                 } label: {
@@ -265,6 +252,10 @@ struct SettingsView: View {
         } message: {
             Text(model.lastError ?? "")
         }
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
     }
 
     private var permissionView: some View {
@@ -324,6 +315,42 @@ struct SettingsView: View {
             .frame(width: 38)
         }
         .padding(.vertical, 5)
+    }
+}
+
+private struct SettingsLanguageButton: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        ZStack {
+            SettingsToolbarIcon(symbol: "globe")
+                .accessibilityHidden(true)
+
+            Menu {
+                ForEach(AppLanguage.allCases) { language in
+                    Button {
+                        model.appLanguage = language
+                    } label: {
+                        if model.appLanguage == language {
+                            Label(model.languageName(language), systemImage: "checkmark")
+                        } else {
+                            Text(model.languageName(language))
+                        }
+                    }
+                }
+            } label: {
+                Color.clear
+                    .frame(width: 38, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 38, height: 28)
+            .accessibilityLabel(model.text(.language))
+        }
+        .frame(width: 38, height: 28)
+        .clipped()
+        .help(model.text(.language))
     }
 }
 
