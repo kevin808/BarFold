@@ -199,12 +199,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showStatusMenu() {
         let menu = NSMenu()
-        menu.addItem(withTitle: shelfController.isVisible ? "收起第二行" : "展开第二行", action: #selector(toggleShelfFromMenu), keyEquivalent: "")
-        menu.addItem(withTitle: "刷新", action: #selector(refresh), keyEquivalent: "r")
+        menu.addItem(
+            withTitle: shelfController.isVisible ? model.text(.collapseSecondRow) : model.text(.expandSecondRow),
+            action: #selector(toggleShelfFromMenu),
+            keyEquivalent: ""
+        )
+        menu.addItem(withTitle: model.text(.refresh), action: #selector(refresh), keyEquivalent: "r")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "设置…", action: #selector(showSettingsFromMenu), keyEquivalent: ",")
+        menu.addItem(withTitle: model.text(.settingsEllipsis), action: #selector(showSettingsFromMenu), keyEquivalent: ",")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 BarFold", action: #selector(quit), keyEquivalent: "q")
+        menu.addItem(withTitle: model.text(.quitBarFold), action: #selector(quit), keyEquivalent: "q")
         menu.items.forEach { $0.target = self }
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
@@ -285,7 +289,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 guard self.pressStatusMenuCommand(
                     item: item,
-                    titlePrefixes: ["首选项", "Preferences"]
+                    titlePrefixes: [
+                        "首选项", "偏好設定", "Preferences", "Préférences", "Einstellungen",
+                        "Preferencias", "環境設定", "설정"
+                    ]
                 ) else {
                     completion(false)
                     return

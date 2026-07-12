@@ -21,9 +21,9 @@ struct ShelfView: View {
 
             Divider().frame(height: 24)
 
-            iconButton("arrow.clockwise", help: "刷新菜单栏项目") { model.scan() }
-            iconButton("gearshape", help: "设置") { openSettings() }
-            iconButton("chevron.up", help: "收起第二行") { collapse() }
+            iconButton("arrow.clockwise", help: model.text(.refreshMenuBarItems)) { model.scan() }
+            iconButton("gearshape", help: model.text(.settings)) { openSettings() }
+            iconButton("chevron.up", help: model.text(.collapseSecondRow)) { collapse() }
         }
         .padding(.horizontal, 10)
         .frame(height: 48)
@@ -38,9 +38,9 @@ struct ShelfView: View {
             HStack(spacing: 8) {
                 Image(systemName: "lock.shield")
                     .foregroundStyle(.orange)
-                Text("需要辅助功能权限")
+                Text(model.text(.accessibilityRequired))
                     .font(.system(size: 13, weight: .medium))
-                Button("授权") { model.requestAccessibility() }
+                Button(model.text(.authorize)) { model.requestAccessibility() }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
             }
@@ -49,10 +49,10 @@ struct ShelfView: View {
             HStack(spacing: 8) {
                 Image(systemName: "tray")
                     .foregroundStyle(.secondary)
-                Text("暂无折叠项目")
+                Text(model.text(.noFoldedItems))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
-                Button("选择") { openSettings() }
+                Button(model.text(.choose)) { openSettings() }
                     .controlSize(.small)
             }
             .frame(maxWidth: .infinity)
@@ -196,7 +196,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("BarFold")
                         .font(.system(size: 22, weight: .semibold))
-                    Text("选择保留在菜单栏第一行的项目")
+                    Text(model.text(.settingsSubtitle))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -206,13 +206,13 @@ struct SettingsView: View {
                 } label: {
                     Image(systemName: "doc.text.magnifyingglass")
                 }
-                .help("显示诊断日志")
+                .help(model.text(.showDiagnosticLog))
                 Button {
                     model.scan()
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
-                .help("刷新")
+                .help(model.text(.refresh))
             }
             .padding(20)
 
@@ -230,7 +230,18 @@ struct SettingsView: View {
             Divider()
 
             VStack(spacing: 12) {
-                Toggle("登录时启动", isOn: Binding(
+                HStack {
+                    Label(model.text(.language), systemImage: "globe")
+                    Spacer()
+                    Picker("", selection: $model.appLanguage) {
+                        ForEach(AppLanguage.allCases) { language in
+                            Text(model.languageName(language)).tag(language)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 180)
+                }
+                Toggle(model.text(.launchAtLogin), isOn: Binding(
                     get: { model.launchAtLogin },
                     set: { model.setLaunchAtLogin($0) }
                 ))
@@ -238,12 +249,12 @@ struct SettingsView: View {
             .toggleStyle(.switch)
             .padding(20)
         }
-        .frame(width: 480, height: 540)
+        .frame(width: 480, height: 580)
         .alert("BarFold", isPresented: Binding(
             get: { model.lastError != nil },
             set: { if !$0 { model.lastError = nil } }
         )) {
-            Button("好") { model.lastError = nil }
+            Button(model.text(.ok)) { model.lastError = nil }
         } message: {
             Text(model.lastError ?? "")
         }
@@ -254,15 +265,15 @@ struct SettingsView: View {
             Image(systemName: "lock.shield")
                 .font(.system(size: 34))
                 .foregroundStyle(.orange)
-            Text("需要辅助功能权限")
+            Text(model.text(.accessibilityRequired))
                 .font(.headline)
-            Text("BarFold 通过辅助功能读取、重排并打开菜单栏项目。")
+            Text(model.text(.accessibilityExplanation))
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
             HStack {
-                Button("请求权限") { model.requestAccessibility() }
+                Button(model.text(.requestPermission)) { model.requestAccessibility() }
                     .buttonStyle(.borderedProminent)
-                Button("打开系统设置") { model.openAccessibilitySettings() }
+                Button(model.text(.openSystemSettings)) { model.openAccessibilitySettings() }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -288,8 +299,8 @@ struct SettingsView: View {
                 if item.isLockedInFirstRow {
                     Image(systemName: "lock.fill")
                         .foregroundStyle(.secondary)
-                        .help("macOS 固定在第一行，无法移动")
-                        .accessibilityLabel("固定在第一行，无法移动")
+                        .help(model.text(.lockedFirstRowHelp))
+                        .accessibilityLabel(model.text(.lockedFirstRowAccessibility))
                 } else if model.pendingFoldIDs.contains(item.id) {
                     ProgressView()
                         .controlSize(.small)
@@ -299,7 +310,7 @@ struct SettingsView: View {
                         set: { model.setFolded(!$0, item: item) }
                     ))
                     .labelsHidden()
-                    .accessibilityLabel("显示在第一行")
+                    .accessibilityLabel(model.text(.showInFirstRow))
                     .disabled(!model.pendingFoldIDs.isEmpty)
                 }
             }

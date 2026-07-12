@@ -11,12 +11,21 @@ final class AppModel: ObservableObject {
     @Published private(set) var pendingFoldIDs: Set<String> = []
     @Published private(set) var launchAtLogin = false
     @Published var lastError: String?
+    @Published var appLanguage: AppLanguage {
+        didSet {
+            defaults.set(appLanguage.rawValue, forKey: Keys.appLanguage)
+            lastError = nil
+            DiagnosticLogger.shared.log("language changed selection=\(appLanguage.rawValue)")
+            onLanguageChange?()
+        }
+    }
 
     var onRequestToggleShelf: (() -> Void)?
     var onRequestCloseShelf: (() -> Void)?
     var onRequestFoldChange: ((MenuBarItem, Bool, @escaping (Bool) -> Void) -> Void)?
     var onRequestActivate: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
     var onRequestOpenApplication: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
+    var onLanguageChange: (() -> Void)?
 
     private let scanner = MenuBarScanner()
     private let defaults = UserDefaults.standard
@@ -27,11 +36,25 @@ final class AppModel: ObservableObject {
         static let configured = "hasConfiguredItems"
         static let itemIDVersion = "itemIDVersion"
         static let settingsItemOrder = "settingsItemOrder"
+        static let appLanguage = "appLanguage"
     }
 
     init() {
         foldedIDs = Set(defaults.stringArray(forKey: Keys.foldedIDs) ?? [])
+        appLanguage = AppLanguage(rawValue: defaults.string(forKey: Keys.appLanguage) ?? "") ?? .system
         refreshLoginItemState()
+    }
+
+    func text(_ key: L10nKey) -> String {
+        L10n.string(key, language: appLanguage)
+    }
+
+    func text(_ key: L10nKey, _ arguments: CVarArg...) -> String {
+        L10n.format(key, language: appLanguage, arguments: arguments)
+    }
+
+    func languageName(_ language: AppLanguage) -> String {
+        language == .system ? text(.followSystem) : language.nativeName
     }
 
     var foldedItems: [MenuBarItem] {
@@ -140,7 +163,7 @@ final class AppModel: ObservableObject {
                     self.foldedIDs.remove(item.id)
                 }
                 self.persistFoldedIDs()
-                self.lastError = "无法移动“\(item.label)”。该项目可能不支持菜单栏重排。"
+                self.lastError = self.text(.errorMoveFailed, item.label)
                 DiagnosticLogger.shared.log(
                     "selection rollback item=\(item.label.debugDescription) id=\(item.id.debugDescription) reason=move-failed"
                 )
@@ -179,7 +202,7 @@ final class AppModel: ObservableObject {
             "activation requested item=\(item.label.debugDescription) id=\(item.id.debugDescription)"
         )
         guard let onRequestActivate else {
-            lastError = "无法打开“\(item.label)”。请刷新后重试。"
+            lastError = text(.errorOpenRetry, item.label)
             DiagnosticLogger.shared.log(
                 "activation failed item=\(item.label.debugDescription) reason=no-activation-handler"
             )
@@ -192,7 +215,7 @@ final class AppModel: ObservableObject {
                     "activation completed item=\(item.label.debugDescription) succeeded=true"
                 )
             } else {
-                self.lastError = "无法打开“\(item.label)”。请刷新后重试。"
+                self.lastError = self.text(.errorOpenRetry, item.label)
                 DiagnosticLogger.shared.log(
                     "activation completed item=\(item.label.debugDescription) succeeded=false"
                 )
@@ -207,7 +230,7 @@ final class AppModel: ObservableObject {
                 + "bundle=\(item.bundleIdentifier.debugDescription)"
         )
         guard let onRequestOpenApplication else {
-            lastError = "无法打开“\(item.label)”。请刷新后重试。"
+            lastError = text(.errorOpenRetry, item.label)
             DiagnosticLogger.shared.log(
                 "application open failed item=\(item.label.debugDescription) reason=no-open-handler"
             )
@@ -220,7 +243,7 @@ final class AppModel: ObservableObject {
                     "application open completed item=\(item.label.debugDescription) succeeded=true"
                 )
             } else {
-                self.lastError = "无法打开“\(item.label)”。该菜单栏项目没有可打开的应用窗口。"
+                self.lastError = self.text(.errorOpenNoApplication, item.label)
                 DiagnosticLogger.shared.log(
                     "application open completed item=\(item.label.debugDescription) succeeded=false "
                         + "nativeMenuFallback=false"

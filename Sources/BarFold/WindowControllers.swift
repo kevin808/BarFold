@@ -117,23 +117,28 @@ final class ShelfPanelController {
 
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    private let model: AppModel
     private let onClose: () -> Void
 
     init(model: AppModel, onClose: @escaping () -> Void) {
+        self.model = model
         self.onClose = onClose
         let content = NSHostingView(rootView: SettingsView(model: model))
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 540),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 580),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "BarFold 设置"
+        window.title = model.text(.settingsWindowTitle)
         window.contentView = content
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)
         window.delegate = self
+        model.onLanguageChange = { [weak window, weak model] in
+            window?.title = model?.text(.settingsWindowTitle) ?? "BarFold"
+        }
     }
 
     required init?(coder: NSCoder) { nil }

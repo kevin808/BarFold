@@ -13,6 +13,10 @@ rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BUILD_DIR/$APP_NAME" "$APP_DIR/Contents/MacOS/$APP_NAME"
 cp "$ROOT/Support/Info.plist" "$APP_DIR/Contents/Info.plist"
+for localization in "$ROOT"/Support/*.lproj; do
+    [[ -d "$localization" ]] || continue
+    cp -R "$localization" "$APP_DIR/Contents/Resources/"
+done
 
 SIGNING_IDENTITY="${BARFOLD_SIGNING_IDENTITY:-Apple Development: kevin80828@gmail.com (LMR6XPUZQ4)}"
 if security find-identity -v -p codesigning | grep -Fq "$SIGNING_IDENTITY"; then

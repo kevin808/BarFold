@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>zh_CN</string>
+    <string>en</string>
     <key>CFBundleExecutable</key>
     <string>BarFold</string>
     <key>CFBundleIdentifier</key>
@@ -15,14 +15,14 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-	<string>0.4.8</string>
+	<string>0.5.0</string>
     <key>CFBundleVersion</key>
-	<string>25</string>
+	<string>26</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSAccessibilityUsageDescription</key>
-    <string>BarFold 需要读取、重排并打开你选择的菜单栏项目。</string>
+    <string>BarFold needs Accessibility access to read, reorder, and open your selected menu bar items.</string>
 </dict>
 </plist>
