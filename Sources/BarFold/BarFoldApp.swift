@@ -271,6 +271,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             openSystemSettings(for: item, completion: completion)
             return
         }
+        if item.bundleIdentifier == "com.Snipaste",
+           let application = NSRunningApplication(processIdentifier: item.pid) {
+            _ = application.activate(options: [])
+            DiagnosticLogger.shared.log(
+                "application command activation requested item=\(item.label.debugDescription) "
+                    + "command=preferences delay=0.2s"
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self else {
+                    completion(false)
+                    return
+                }
+                guard self.pressStatusMenuCommand(
+                    item: item,
+                    titlePrefixes: ["首选项", "Preferences"]
+                ) else {
+                    completion(false)
+                    return
+                }
+                DiagnosticLogger.shared.log(
+                    "application command invoked item=\(item.label.debugDescription) "
+                        + "command=preferences menuDisplayed=false"
+                )
+                self.waitForVisibleApplicationWindow(
+                    item: item,
+                    launchedApplication: application,
+                    attemptsRemaining: 40,
+                    completion: completion
+                )
+            }
+            return
+        }
 
         guard let applicationURL = launchURL(for: item) else {
             DiagnosticLogger.shared.log(
@@ -367,6 +399,102 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 + "destination=\(destination.debugDescription) succeeded=\(opened)"
         )
         completion(opened)
+    }
+
+    private func pressStatusMenuCommand(
+        item: MenuBarItem,
+        titlePrefixes: [String]
+    ) -> Bool {
+        let applicationElement = AXUIElementCreateApplication(item.pid)
+        let roots = [accessibilityElement(
+            attribute: kAXExtrasMenuBarAttribute,
+            from: applicationElement
+        ), item.element].compactMap { $0 }
+
+        for root in roots {
+            guard let command = findMenuItem(
+                in: root,
+                titlePrefixes: titlePrefixes,
+                depthRemaining: 6
+            ) else { continue }
+            let result = AXUIElementPerformAction(command, kAXPressAction as CFString)
+            DiagnosticLogger.shared.log(
+                "application command AXPress item=\(item.label.debugDescription) "
+                    + "result=\(result.rawValue)"
+            )
+            return result == .success
+        }
+        DiagnosticLogger.shared.log(
+            "application command unavailable item=\(item.label.debugDescription) "
+                + "commands=\(titlePrefixes)"
+        )
+        return false
+    }
+
+    private func findMenuItem(
+        in element: AXUIElement,
+        titlePrefixes: [String],
+        depthRemaining: Int
+    ) -> AXUIElement? {
+        guard depthRemaining >= 0 else { return nil }
+        if accessibilityString(attribute: kAXRoleAttribute, from: element) == kAXMenuItemRole {
+            let title = accessibilityString(attribute: kAXTitleAttribute, from: element)
+            if titlePrefixes.contains(where: {
+                title.range(
+                    of: $0,
+                    options: [.caseInsensitive, .anchored],
+                    locale: .current
+                ) != nil
+            }) {
+                return element
+            }
+        }
+        for child in accessibilityChildren(of: element) {
+            if let match = findMenuItem(
+                in: child,
+                titlePrefixes: titlePrefixes,
+                depthRemaining: depthRemaining - 1
+            ) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    private func accessibilityElement(
+        attribute: String,
+        from element: AXUIElement
+    ) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element,
+            attribute as CFString,
+            &value
+        ) == .success else { return nil }
+        return (value as! AXUIElement?)
+    }
+
+    private func accessibilityString(
+        attribute: String,
+        from element: AXUIElement
+    ) -> String {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element,
+            attribute as CFString,
+            &value
+        ) == .success else { return "" }
+        return value as? String ?? ""
+    }
+
+    private func accessibilityChildren(of element: AXUIElement) -> [AXUIElement] {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            element,
+            kAXChildrenAttribute as CFString,
+            &value
+        ) == .success else { return [] }
+        return value as? [AXUIElement] ?? []
     }
 
     private func waitForVisibleApplicationWindow(
