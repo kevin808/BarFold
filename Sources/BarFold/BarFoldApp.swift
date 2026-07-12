@@ -294,12 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     "application command invoked item=\(item.label.debugDescription) "
                         + "command=preferences menuDisplayed=false"
                 )
-                self.waitForVisibleApplicationWindow(
-                    item: item,
-                    launchedApplication: application,
-                    attemptsRemaining: 40,
-                    completion: completion
-                )
+                completion(true)
             }
             return
         }
@@ -340,12 +335,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
                 _ = application.activate(options: [.activateAllWindows])
-                self.waitForVisibleApplicationWindow(
-                    item: item,
-                    launchedApplication: application,
-                    attemptsRemaining: 12,
-                    completion: completion
+                DiagnosticLogger.shared.log(
+                    "application launch accepted item=\(item.label.debugDescription) "
+                        + "pid=\(application.processIdentifier)"
                 )
+                completion(true)
             }
         }
     }
@@ -495,68 +489,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             &value
         ) == .success else { return [] }
         return value as? [AXUIElement] ?? []
-    }
-
-    private func waitForVisibleApplicationWindow(
-        item: MenuBarItem,
-        launchedApplication: NSRunningApplication,
-        attemptsRemaining: Int,
-        completion: @escaping (Bool) -> Void
-    ) {
-        var candidatePIDs: Set<pid_t> = [item.pid, launchedApplication.processIdentifier]
-        NSWorkspace.shared.runningApplications
-            .filter { $0.bundleIdentifier == item.bundleIdentifier }
-            .forEach { candidatePIDs.insert($0.processIdentifier) }
-
-        if let frame = visibleApplicationWindowFrame(ownerPIDs: candidatePIDs) {
-            DiagnosticLogger.shared.log(
-                "application visible window item=\(item.label.debugDescription) "
-                    + "frame=\(frame.debugDescription) pids=\(candidatePIDs.sorted())"
-            )
-            completion(true)
-            return
-        }
-
-        guard attemptsRemaining > 1 else {
-            DiagnosticLogger.shared.log(
-                "application launch failed item=\(item.label.debugDescription) reason=no-visible-window "
-                    + "pids=\(candidatePIDs.sorted())"
-            )
-            completion(false)
-            return
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            self?.waitForVisibleApplicationWindow(
-                item: item,
-                launchedApplication: launchedApplication,
-                attemptsRemaining: attemptsRemaining - 1,
-                completion: completion
-            )
-        }
-    }
-
-    private func visibleApplicationWindowFrame(ownerPIDs: Set<pid_t>) -> CGRect? {
-        let windows = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] ?? []
-
-        return windows.compactMap { window -> CGRect? in
-            guard let ownerPID = (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
-                  ownerPIDs.contains(ownerPID),
-                  (window[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
-                  (window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 0 > 0,
-                  let bounds = window[kCGWindowBounds as String] as? [String: NSNumber],
-                  let x = bounds["X"]?.doubleValue,
-                  let y = bounds["Y"]?.doubleValue,
-                  let width = bounds["Width"]?.doubleValue,
-                  let height = bounds["Height"]?.doubleValue else { return nil }
-            let frame = CGRect(x: x, y: y, width: width, height: height)
-            guard
-                  frame.width >= 120,
-                  frame.height >= 80 else { return nil }
-            return frame
-        }.first
     }
 
     private func armActivationDismissal(sessionID: UUID) {
