@@ -1,45 +1,132 @@
 # BarFold
 
-BarFold 是一个原生 macOS 菜单栏整理工具。它将选中的菜单栏项目收进顶部菜单栏下方的第二行，并通过可伸缩分隔区收起第一行图标，以缓解刘海屏和小屏幕上的空间不足。
+<div align="center">
 
-## 功能
+**A compact second row for crowded macOS menu bars.**
 
-- 自动发现支持辅助功能的菜单栏项目
-- 一键展开或收起第二行
-- 再次点击 BarFold 状态栏图标可直接收起第二行
-- 点击第二行外部或按 `Esc` 自动收起
-- 点击第二行图标直接打开对应应用，不显示原生状态菜单
-- Snipaste 等菜单栏应用直接打开其设置界面
-- 对不支持辅助功能点击的项目使用窗口级点击回退
-- 拖动图标调整顺序
-- 在设置中勾选保留在第一行的项目，未勾选项目自动移入第二行
-- 设置列表顺序保持固定，勾选项目后不会跳到其他位置
-- “控制中心”和“时钟”标记为 macOS 固定项目，始终保留在第一行
-- 首次启动默认将所有可发现项目放入第二行
-- 自动收起已放入第二行的原图标，不留下遮罩空位
-- 支持登录时启动和多显示器坐标转换
-- 支持跟随系统语言或手动选择简体中文、繁体中文、英语、日语、韩语、法语、德语和西班牙语
+English | [简体中文](README_CN.md) | [日本語](README_JA.md)
 
-## 构建
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-black?logo=apple)
+![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)
+[![Build BarFold](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
+
+</div>
+
+BarFold is a native macOS utility that moves selected menu bar items into a compact second row below the menu bar. It is designed for Macs with a notch and for smaller displays where status items run out of space.
+
+## Preview
+
+<div align="center">
+  <img src="docs/images/settings.png" alt="BarFold settings" width="480">
+  <br><br>
+  <img src="docs/images/second-row.png" alt="BarFold second row" width="330">
+</div>
+
+The checked items stay in the first menu bar row. Unchecked items are moved into BarFold's second row.
+
+## Features
+
+- Discover menu bar items through macOS Accessibility APIs.
+- Move selected items into a collapsible second row without leaving placeholder gaps.
+- Open or collapse the second row from the BarFold status item.
+- Collapse automatically after clicking elsewhere, or press `Esc`.
+- Open the associated application or settings page by clicking a second-row item.
+- Drag second-row icons to keep a stable custom order.
+- Keep the settings list in place while changing selections.
+- Keep macOS-locked Control Center and Clock items in the first row.
+- Move all discoverable items to the second row on first launch by default.
+- Launch at login and support multiple displays.
+- Keep rotating diagnostic logs locally for troubleshooting.
+- Follow the system language or choose Simplified Chinese, Traditional Chinese, English, Japanese, Korean, French, German, or Spanish.
+
+## Requirements
+
+- macOS 13 Ventura or later.
+- Accessibility permission for discovering and rearranging menu bar items.
+- A menu bar item that exposes enough Accessibility information to be moved.
+
+BarFold is not intended for Mac App Store distribution because it relies on Accessibility events and WindowServer menu bar window information that macOS does not expose as a public status-item management API.
+
+## Install
+
+1. Download `BarFold-x.y.z.zip` from [GitHub Releases](../../releases/latest).
+2. Unzip it and move `BarFold.app` to `/Applications` before granting permission.
+3. Open BarFold. If macOS blocks an ad-hoc signed build, Control-click the app and choose **Open**, or allow it in **System Settings > Privacy & Security**.
+4. Open **System Settings > Privacy & Security > Accessibility** and enable BarFold.
+5. Open BarFold settings and check the items that should remain in the first row. Unchecked items move to the second row.
+6. Click the BarFold menu bar icon to expand or collapse the second row.
+
+Moving the app or replacing it with a build that has a different code signature can cause macOS to request Accessibility permission again.
+
+## Usage
+
+### Choose where items appear
+
+Open settings from the gear button in the second row, or right-click the BarFold status item and choose **Settings**. Checked items stay in the first row; unchecked items are folded into the second row.
+
+### Use the second row
+
+- Click the BarFold status item once to expand it and again to collapse it.
+- Click an item to open its associated application. Menu-only apps may open their preferences instead.
+- Drag an item left or right to change its order in the second row.
+- Click outside the second row or press `Esc` to close it.
+- Use the refresh button after installing, quitting, or rearranging another menu bar app.
+
+### Change language
+
+Open settings and click the globe button in the upper-right corner. Language changes take effect immediately and persist across launches.
+
+## Build from source
+
+Requirements: Xcode 16 or a Swift 6 toolchain.
 
 ```bash
-chmod +x scripts/package-app.sh
-./scripts/package-app.sh
+git clone <your-repository-url>
+cd BarFold
+chmod +x scripts/package-app.sh scripts/build-release.sh
+./scripts/build-release.sh
 open dist/BarFold.app
 ```
 
-首次运行时，请按提示在“系统设置 > 隐私与安全性 > 辅助功能”中允许 BarFold。
+The release archive is written to `outputs/BarFold-<version>.zip`. Builds use the first local Apple Development identity when available; otherwise they are ad-hoc signed. Set a specific identity explicitly when needed:
 
-打开设置后，勾选需要保留在第一行的项目。BarFold 会自动重排菜单栏；未勾选项目只保留在第二行。
+```bash
+BARFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
+  ./scripts/build-release.sh
+```
 
-## 诊断日志
+## GitHub Actions
 
-正式版本始终保留本地诊断日志，用于定位窗口匹配和菜单栏移动失败。点击设置页右上角的日志按钮可在 Finder 中显示日志文件：
+The workflow in [`.github/workflows/build.yml`](.github/workflows/build.yml) is ready for a public GitHub repository:
 
-`~/Library/Application Support/BarFold/barfold.log`
+- Pushes and pull requests compile with warnings treated as errors, package the app, verify the signature and ZIP, and upload a workflow artifact.
+- Tags matching `v*` create or update a GitHub Release with the ZIP attached.
+- A tag must match `CFBundleShortVersionString`; for example, app version `0.5.4` requires tag `v0.5.4`.
 
-日志仅保存在本机，不会上传。当前日志达到 1 MB 后轮转为 `barfold.previous.log`，保留最近两份。
+To publish a release after configuring the GitHub remote:
 
-## 系统边界
+```bash
+git push origin main
+git push origin v0.5.4
+```
 
-macOS 没有公开 API 可直接改变其他应用状态项的可见性或顺序。BarFold 使用辅助功能与系统事件自动重排状态项，再通过原生可伸缩状态项收起选中的图标。为移动刘海或屏幕外的项目，BarFold 会读取 WindowServer 的非公开菜单栏窗口 ID；它不注入其他进程，但不适合 App Store 分发，macOS 大版本升级时可能需要适配。少数没有暴露辅助功能信息或明确禁止重排的项目仍可能无法移入第二行。
+GitHub-hosted builds are ad-hoc signed unless a signing certificate is added to the workflow. For frictionless public distribution, use a Developer ID Application certificate and notarize the release outside the default workflow.
+
+## Diagnostics
+
+Click the diagnostic-log button in the upper-right corner of settings to reveal:
+
+```text
+~/Library/Application Support/BarFold/barfold.log
+```
+
+Logs remain on the Mac and are never uploaded by BarFold. The log rotates at 1 MB to `barfold.previous.log`, keeping the two most recent files.
+
+## Limitations
+
+- Control Center and Clock are locked by macOS and cannot be moved.
+- Some third-party status items do not expose enough Accessibility information or reject synthetic drag events.
+- Major macOS updates may require BarFold compatibility changes.
+- Second-row clicks open applications or preferences; BarFold does not reproduce each app's native status menu.
+
+When reporting a move or launch failure, include the macOS version, BarFold version, affected app name, and the relevant diagnostic-log excerpt.

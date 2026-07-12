@@ -1,0 +1,61 @@
+name: Build BarFold
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show Swift toolchain
+        run: swift --version
+
+      - name: Read version
+        id: version
+        shell: zsh {0}
+        run: |
+          VERSION="$(plutil -extract CFBundleShortVersionString raw Support/Info.plist)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match app version $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Build and package
+        run: ./scripts/build-release.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BarFold-${{ steps.version.outputs.version }}-macOS
+          path: outputs/BarFold-${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ARCHIVE="outputs/BarFold-$VERSION.zip"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ARCHIVE" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$ARCHIVE" \
+              --title "BarFold $VERSION" \
+              --generate-notes
+          fi
