@@ -34,6 +34,7 @@ BarFold は、選択したメニューバー項目をメニューバー直下の
 - 2段目の項目をクリックすると、対応するアプリまたは設定画面を開きます。
 - 2段目のアイコンをドラッグして、任意の順序を維持できます。
 - 選択を変更しても、設定リスト内の項目位置は変わりません。
+- メニューバーアプリの起動、再起動、ログイン時の遅延表示後に、保存済みの段位置を自動的に再適用します。
 - macOS によって固定されているコントロールセンターと時計は1段目に残します。
 - 初回起動時は、検出可能な項目を既定で2段目へ移動します。
 - ログイン時の起動と複数ディスプレイに対応します。
@@ -102,13 +103,13 @@ BARFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 
 - Push と Pull Request では、警告をエラーとして扱ってコンパイルし、アプリのパッケージ化、署名と ZIP の検証、Actions アーティファクトのアップロードを行います。
 - `v*` 形式のタグを Push すると、ZIP を添付した GitHub Release を自動作成または更新します。
-- タグは `CFBundleShortVersionString` と一致する必要があります。たとえばアプリのバージョンが `0.5.6` の場合、タグは `v0.5.6` です。
+- タグは `CFBundleShortVersionString` と一致する必要があります。たとえばアプリのバージョンが `0.5.7` の場合、タグは `v0.5.7` です。
 
 GitHub のリモートリポジトリを設定した後、次のコマンドで公開できます。
 
 ```bash
 git push origin main
-git push origin v0.5.6
+git push origin v0.5.7
 ```
 
 GitHub ホスト環境での既定ビルドは ad-hoc 署名です。一般公開時の Gatekeeper 警告をなくすには、Developer ID Application 証明書を使用し、既定フローとは別に Apple の公証処理を追加してください。

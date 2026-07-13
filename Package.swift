@@ -14,6 +14,14 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]
+        ),
+        .testTarget(
+            name: "BarFoldTests",
+            dependencies: ["BarFold"],
+            path: "Tests/BarFoldTests",
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
         )
     ]
 )

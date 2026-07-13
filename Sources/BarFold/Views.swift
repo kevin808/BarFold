@@ -299,7 +299,8 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                         .help(model.text(.lockedFirstRowHelp))
                         .accessibilityLabel(model.text(.lockedFirstRowAccessibility))
-                } else if model.pendingFoldIDs.contains(item.id) {
+                } else if model.pendingFoldIDs.contains(item.id)
+                    || model.synchronizingPlacementIDs.contains(item.id) {
                     ProgressView()
                         .controlSize(.small)
                 } else {
@@ -309,7 +310,7 @@ struct SettingsView: View {
                     ))
                     .labelsHidden()
                     .accessibilityLabel(model.text(.showInFirstRow))
-                    .disabled(!model.pendingFoldIDs.isEmpty)
+                    .disabled(model.isPlacementBusy)
                 }
             }
             .frame(width: 38)

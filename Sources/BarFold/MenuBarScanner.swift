@@ -14,6 +14,45 @@ private struct ScannedItemCandidate {
     let element: AXUIElement
 }
 
+struct MenuBarWindowMatchCandidate {
+    let frame: CGRect
+    let expectedTitles: Set<String>
+}
+
+enum MenuBarWindowMatcher {
+    static func match(
+        candidates: [MenuBarWindowMatchCandidate],
+        availableWindows: [MenuBarWindowBridge.WindowRecord]
+    ) -> [MenuBarWindowBridge.WindowRecord?] {
+        var windows = availableWindows
+            .filter { $0.frame.width > 2 && $0.frame.width < 200 && $0.frame.height < 60 }
+        return candidates.map { candidate in
+            let nearestIndex = windows.indices.min {
+                MenuBarWindowBridge.matchDistance(windows[$0].frame, candidate.frame)
+                    < MenuBarWindowBridge.matchDistance(windows[$1].frame, candidate.frame)
+            }
+
+            let index: Int?
+            if let nearestIndex,
+               MenuBarWindowBridge.matchDistance(windows[nearestIndex].frame, candidate.frame) <= 20 {
+                index = nearestIndex
+            } else {
+                index = windows.indices
+                    .filter { windowIndex in
+                        windows[windowIndex].title.map(candidate.expectedTitles.contains) == true
+                    }
+                    .min {
+                        MenuBarWindowBridge.matchDistance(windows[$0].frame, candidate.frame)
+                            < MenuBarWindowBridge.matchDistance(windows[$1].frame, candidate.frame)
+                    }
+            }
+
+            guard let index else { return nil }
+            return windows.remove(at: index)
+        }
+    }
+}
+
 final class MenuBarScanner: @unchecked Sendable {
     private var lastDiagnosticSignature: String?
 
@@ -83,7 +122,7 @@ final class MenuBarScanner: @unchecked Sendable {
             return lhs.frame.minX < rhs.frame.minX
         }
         let matchedWindows = matchWindows(
-            to: sortedCandidates.map(\.frame),
+            to: sortedCandidates,
             availableWindows: availableWindows
         )
 
@@ -107,7 +146,8 @@ final class MenuBarScanner: @unchecked Sendable {
             lastDiagnosticSignature = diagnosticSignature
         }
 
-        return zip(sortedCandidates, matchedWindows).map { candidate, matchedWindow in
+        return zip(sortedCandidates, matchedWindows).compactMap { candidate, matchedWindow in
+            guard let matchedWindow else { return nil }
             return MenuBarItem(
                 id: candidate.id,
                 applicationName: candidate.applicationName,
@@ -116,10 +156,8 @@ final class MenuBarScanner: @unchecked Sendable {
                 pid: candidate.pid,
                 menuIndex: candidate.menuIndex,
                 accessibilityIdentifier: candidate.accessibilityIdentifier,
-                windowID: matchedWindow?.id,
-                eventTargetPID: matchedWindow.flatMap {
-                    $0.ownerPID == 0 ? nil : $0.ownerPID
-                } ?? candidate.pid,
+                windowID: matchedWindow.id,
+                eventTargetPID: matchedWindow.ownerPID == 0 ? candidate.pid : matchedWindow.ownerPID,
                 frame: candidate.frame,
                 icon: candidate.icon,
                 element: candidate.element
@@ -127,25 +165,22 @@ final class MenuBarScanner: @unchecked Sendable {
         }
     }
 
-    private func frameDistance(_ lhs: CGRect, _ rhs: CGRect) -> CGFloat {
-        MenuBarWindowBridge.matchDistance(lhs, rhs)
-    }
-
     private func matchWindows(
-        to itemFrames: [CGRect],
+        to candidates: [ScannedItemCandidate],
         availableWindows: [MenuBarWindowBridge.WindowRecord]
     ) -> [MenuBarWindowBridge.WindowRecord?] {
-        var windows = availableWindows
-            .filter { $0.frame.width > 2 && $0.frame.width < 200 && $0.frame.height < 60 }
-        return itemFrames.map { itemFrame in
-            guard let index = windows.indices.min(by: {
-                frameDistance(windows[$0].frame, itemFrame)
-                    < frameDistance(windows[$1].frame, itemFrame)
-            }), frameDistance(windows[index].frame, itemFrame) <= 20 else {
-                return nil
-            }
-            return windows.remove(at: index)
-        }
+        MenuBarWindowMatcher.match(
+            candidates: candidates.map { candidate in
+                MenuBarWindowMatchCandidate(
+                    frame: candidate.frame,
+                    expectedTitles: Set(
+                        [candidate.bundleIdentifier, candidate.accessibilityIdentifier]
+                            .compactMap { $0 }
+                    )
+                )
+            },
+            availableWindows: availableWindows
+        )
     }
 
     private func menuBarItems(in root: AXUIElement) -> [AXUIElement] {

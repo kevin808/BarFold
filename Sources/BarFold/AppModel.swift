@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isScanning = false
     @Published private(set) var foldedIDs: Set<String>
     @Published private(set) var pendingFoldIDs: Set<String> = []
+    @Published private(set) var synchronizingPlacementIDs: Set<String> = []
     @Published private(set) var launchAtLogin = false
     @Published var lastError: String?
     @Published var appLanguage: AppLanguage {
@@ -25,11 +26,13 @@ final class AppModel: ObservableObject {
     var onRequestFoldChange: ((MenuBarItem, Bool, @escaping (Bool) -> Void) -> Void)?
     var onRequestActivate: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
     var onRequestOpenApplication: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
+    var onScanCompleted: (([MenuBarItem], [MenuBarItem]) -> Void)?
     var onLanguageChange: (() -> Void)?
 
     private let scanner = MenuBarScanner()
     private let defaults = UserDefaults.standard
     private let scanQueue = DispatchQueue(label: "com.local.BarFold.scan", qos: .utility)
+    private var placementDiscoveryTracker = PlacementDiscoveryTracker()
 
     private enum Keys {
         static let foldedIDs = "foldedItemIDs"
@@ -61,12 +64,17 @@ final class AppModel: ObservableObject {
         items.filter { foldedIDs.contains($0.id) }
     }
 
+    var isPlacementBusy: Bool {
+        !pendingFoldIDs.isEmpty || !synchronizingPlacementIDs.isEmpty
+    }
+
     func scan(promptForPermission: Bool = false) {
-        guard !isScanning, pendingFoldIDs.isEmpty else { return }
+        guard !isScanning, !isPlacementBusy else { return }
         isTrusted = scanner.isTrusted(prompt: promptForPermission)
         guard isTrusted else {
             DiagnosticLogger.shared.log("scan skipped reason=accessibility-not-trusted prompt=\(promptForPermission)")
             items = []
+            placementDiscoveryTracker.reset()
             return
         }
 
@@ -103,6 +111,26 @@ final class AppModel: ObservableObject {
         }
 
         keepLockedItemsInFirstRow(scannedItems)
+
+        let currentPIDs = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.pid) })
+        let discoveredIDs = placementDiscoveryTracker.changedIDs(in: currentPIDs)
+        let discoveredItems = items.filter { discoveredIDs.contains($0.id) }
+        if !discoveredItems.isEmpty {
+            DiagnosticLogger.shared.log(
+                "placement discovery changed=\(discoveredItems.count) ids="
+                    + discoveredItems.map(\.id).joined(separator: ",").debugDescription
+            )
+        }
+        onScanCompleted?(items, discoveredItems)
+    }
+
+    func beginPlacementSynchronization(for ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        synchronizingPlacementIDs.formUnion(ids)
+    }
+
+    func finishPlacementSynchronization(for ids: Set<String>) {
+        synchronizingPlacementIDs.subtract(ids)
     }
 
     func requestAccessibility() {
@@ -131,7 +159,7 @@ final class AppModel: ObservableObject {
             )
             return
         }
-        guard !pendingFoldIDs.contains(item.id) else { return }
+        guard !isPlacementBusy else { return }
         let wasFolded = foldedIDs.contains(item.id)
         guard wasFolded != folded else { return }
 

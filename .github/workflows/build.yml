@@ -35,6 +35,9 @@ jobs:
             exit 1
           fi
 
+      - name: Run tests
+        run: swift test -Xswiftc -warnings-as-errors
+
       - name: Build and package
         run: ./scripts/build-release.sh
 
