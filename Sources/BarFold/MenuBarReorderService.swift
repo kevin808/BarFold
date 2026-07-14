@@ -88,6 +88,8 @@ final class MenuBarReorderService: @unchecked Sendable {
     ) {
         queue.async {
             let startedAt = Date()
+            var cursorSession: CursorPreservationSession?
+            defer { cursorSession?.restore() }
             let destinationName = hidden ? "second-row" : "first-row"
             let cachedWindowDescription = item.windowID.map(String.init) ?? "nil"
             let separatorWindowDescription = separatorWindowID.map(String.init) ?? "nil"
@@ -126,6 +128,10 @@ final class MenuBarReorderService: @unchecked Sendable {
                     )
                     DispatchQueue.main.async { completion(true) }
                     return
+                }
+
+                if cursorSession == nil {
+                    cursorSession = CursorPreservationSession(diagnosticContext: context)
                 }
 
                 let moved: Bool
@@ -550,7 +556,6 @@ final class MenuBarReorderService: @unchecked Sendable {
             DiagnosticLogger.shared.log("fallback drag failed \(diagnosticContext) stage=post-event-permission")
             return false
         }
-        let originalCursorPosition = CGEvent(source: nil)?.location
         guard let eventSource = CGEventSource(stateID: .hidSystemState),
               let move = CGEvent(
                 mouseEventSource: eventSource,
@@ -607,15 +612,6 @@ final class MenuBarReorderService: @unchecked Sendable {
         up.flags = .maskCommand
         up.post(tap: .cghidEventTap)
         Thread.sleep(forTimeInterval: 0.05)
-        if let originalCursorPosition,
-           let restore = CGEvent(
-            mouseEventSource: eventSource,
-            mouseType: .mouseMoved,
-            mouseCursorPosition: originalCursorPosition,
-            mouseButton: .left
-           ) {
-            restore.post(tap: .cghidEventTap)
-        }
         return true
     }
 
@@ -711,6 +707,62 @@ final class MenuBarReorderService: @unchecked Sendable {
         var size = CGSize.zero
         guard AXValueGetValue(rawValue as! AXValue, type, &size) else { return nil }
         return size as? T
+    }
+}
+
+private final class CursorPreservationSession {
+    private let originalPosition: CGPoint?
+    private let displayID: CGDirectDisplayID
+    private let didHideCursor: Bool
+    private let diagnosticContext: String
+    private var isRestored = false
+
+    init(diagnosticContext: String) {
+        self.diagnosticContext = diagnosticContext
+        originalPosition = CGEvent(source: nil)?.location
+        displayID = Self.display(containing: originalPosition) ?? CGMainDisplayID()
+        didHideCursor = CGDisplayHideCursor(displayID) == .success
+        DiagnosticLogger.shared.log(
+            "cursor preservation started \(diagnosticContext) "
+                + "position=\(Self.describe(originalPosition)) hidden=\(didHideCursor)"
+        )
+    }
+
+    deinit {
+        restore()
+    }
+
+    func restore() {
+        guard !isRestored else { return }
+        isRestored = true
+
+        let warpResult = originalPosition.map(CGWarpMouseCursorPosition)
+        let showResult = didHideCursor ? CGDisplayShowCursor(displayID) : .success
+        DiagnosticLogger.shared.log(
+            "cursor preservation restored \(diagnosticContext) "
+                + "position=\(Self.describe(originalPosition)) warp=\(Self.describe(warpResult)) "
+                + "shown=\(showResult == .success)"
+        )
+    }
+
+    private static func display(containing position: CGPoint?) -> CGDirectDisplayID? {
+        guard let position else { return nil }
+        var displayID = CGDirectDisplayID()
+        var displayCount: UInt32 = 0
+        guard CGGetDisplaysWithPoint(position, 1, &displayID, &displayCount) == .success,
+              displayCount > 0 else {
+            return nil
+        }
+        return displayID
+    }
+
+    private static func describe(_ point: CGPoint?) -> String {
+        guard let point else { return "nil" }
+        return String(format: "{x=%.1f,y=%.1f}", point.x, point.y)
+    }
+
+    private static func describe(_ error: CGError?) -> String {
+        error.map { String($0.rawValue) } ?? "skipped"
     }
 }
 
