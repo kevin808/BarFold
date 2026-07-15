@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Show Swift toolchain
         run: swift --version
@@ -42,7 +42,7 @@ jobs:
         run: ./scripts/build-release.sh
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: BarFold-${{ steps.version.outputs.version }}-macOS
           path: outputs/BarFold-${{ steps.version.outputs.version }}.zip
