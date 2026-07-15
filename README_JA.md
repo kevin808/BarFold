@@ -104,13 +104,13 @@ BARFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 
 - Push と Pull Request では、警告をエラーとして扱ってコンパイルし、アプリのパッケージ化、署名と ZIP の検証、Actions アーティファクトのアップロードを行います。
 - `v*` 形式のタグを Push すると、ZIP を添付した GitHub Release を自動作成または更新します。
-- タグは `CFBundleShortVersionString` と一致する必要があります。たとえばアプリのバージョンが `0.5.8` の場合、タグは `v0.5.8` です。
+- タグは `CFBundleShortVersionString` と一致する必要があります。たとえばアプリのバージョンが `0.5.9` の場合、タグは `v0.5.9` です。
 
 GitHub のリモートリポジトリを設定した後、次のコマンドで公開できます。
 
 ```bash
 git push origin main
-git push origin v0.5.8
+git push origin v0.5.9
 ```
 
 GitHub ホスト環境での既定ビルドは ad-hoc 署名です。一般公開時の Gatekeeper 警告をなくすには、Developer ID Application 証明書を使用し、既定フローとは別に Apple の公証処理を追加してください。

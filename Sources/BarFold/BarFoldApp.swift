@@ -440,28 +440,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = application.activate(options: [])
             DiagnosticLogger.shared.log(
                 "application command activation requested item=\(item.label.debugDescription) "
-                    + "command=preferences delay=0.2s"
+                    + "command=preferences delay=0.2s retries=10"
             )
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
                 guard let self else {
                     completion(false)
                     return
                 }
-                guard self.pressStatusMenuCommand(
+                self.openSnipastePreferences(
                     item: item,
-                    titlePrefixes: [
-                        "首选项", "偏好設定", "Preferences", "Préférences", "Einstellungen",
-                        "Preferencias", "環境設定", "설정"
-                    ]
-                ) else {
-                    completion(false)
-                    return
-                }
-                DiagnosticLogger.shared.log(
-                    "application command invoked item=\(item.label.debugDescription) "
-                        + "command=preferences menuDisplayed=false"
+                    attemptsRemaining: 10,
+                    completion: completion
                 )
-                completion(true)
             }
             return
         }
@@ -562,15 +552,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         completion(opened)
     }
 
-    private func pressStatusMenuCommand(
+    private func openSnipastePreferences(
+        item: MenuBarItem,
+        attemptsRemaining: Int,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let titlePrefixes = [
+            "首选项", "偏好設定", "Preferences", "Préférences", "Einstellungen",
+            "Preferencias", "環境設定", "설정"
+        ]
+        if pressApplicationMenuCommand(item: item, titlePrefixes: titlePrefixes) {
+            DiagnosticLogger.shared.log(
+                "application command invoked item=\(item.label.debugDescription) "
+                    + "command=preferences menuDisplayed=false"
+            )
+            completion(true)
+            return
+        }
+
+        guard attemptsRemaining > 1 else {
+            DiagnosticLogger.shared.log(
+                "application command unavailable item=\(item.label.debugDescription) "
+                    + "commands=\(titlePrefixes) attempts=10"
+            )
+            completion(false)
+            return
+        }
+
+        let attempt = 11 - attemptsRemaining
+        DiagnosticLogger.shared.log(
+            "application command retry item=\(item.label.debugDescription) "
+                + "command=preferences attempt=\(attempt + 1)/10 delay=0.15s"
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.openSnipastePreferences(
+                item: item,
+                attemptsRemaining: attemptsRemaining - 1,
+                completion: completion
+            )
+        }
+    }
+
+    private func pressApplicationMenuCommand(
         item: MenuBarItem,
         titlePrefixes: [String]
     ) -> Bool {
         let applicationElement = AXUIElementCreateApplication(item.pid)
-        let roots = [accessibilityElement(
-            attribute: kAXExtrasMenuBarAttribute,
-            from: applicationElement
-        ), item.element].compactMap { $0 }
+        AXUIElementSetMessagingTimeout(applicationElement, 0.5)
+        let roots = [
+            accessibilityElement(attribute: kAXExtrasMenuBarAttribute, from: applicationElement),
+            accessibilityElement(attribute: kAXMenuBarAttribute, from: applicationElement),
+            item.element
+        ].compactMap { $0 }
 
         for root in roots {
             guard let command = findMenuItem(
@@ -585,10 +618,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             return result == .success
         }
-        DiagnosticLogger.shared.log(
-            "application command unavailable item=\(item.label.debugDescription) "
-                + "commands=\(titlePrefixes)"
-        )
         return false
     }
 
