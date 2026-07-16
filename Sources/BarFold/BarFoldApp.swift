@@ -491,14 +491,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     completion(false)
                     return
                 }
-                _ = application.activate(options: [.activateAllWindows])
                 DiagnosticLogger.shared.log(
-                    "application launch accepted item=\(item.label.debugDescription) "
-                        + "pid=\(application.processIdentifier)"
+                    "application launch callback item=\(item.label.debugDescription) "
+                        + "pid=\(application.processIdentifier) "
+                        + "bundleURL=\(application.bundleURL?.path.debugDescription ?? "nil")"
                 )
-                completion(true)
+                // Some menu-bar applications (notably VideoFusion) register a tray
+                // helper as the application returned by openApplication. Activating
+                // that PID leaves the real application window hidden. Resolve the
+                // process whose bundle URL is exactly the URL we asked Workspace to
+                // open, retrying briefly while the outer app is still starting.
+                self.activateLaunchedApplication(
+                    expectedURL: applicationURL,
+                    callbackApplication: application,
+                    item: item,
+                    attemptsRemaining: 12,
+                    completion: completion
+                )
             }
         }
+    }
+
+    private func activateLaunchedApplication(
+        expectedURL: URL,
+        callbackApplication: NSRunningApplication,
+        item: MenuBarItem,
+        attemptsRemaining: Int,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let expectedPath = normalizedApplicationPath(expectedURL)
+        let target = NSWorkspace.shared.runningApplications.first { runningApplication in
+            guard !runningApplication.isTerminated,
+                  let bundleURL = runningApplication.bundleURL else {
+                return false
+            }
+            return normalizedApplicationPath(bundleURL) == expectedPath
+        }
+
+        if let target {
+            let activated = target.activate(options: [.activateAllWindows])
+            DiagnosticLogger.shared.log(
+                "application activation target item=\(item.label.debugDescription) "
+                    + "pid=\(target.processIdentifier) "
+                    + "bundleURL=\(target.bundleURL?.path.debugDescription ?? "nil") "
+                    + "accepted=\(activated)"
+            )
+            // The launch was accepted even when AppKit reports a transient false
+            // activation result (for example while the app is creating its first
+            // window), so report success once the correct process is present.
+            completion(true)
+            return
+        }
+
+        guard attemptsRemaining > 0 else {
+            let activated = callbackApplication.activate(options: [.activateAllWindows])
+            DiagnosticLogger.shared.log(
+                "application activation fallback item=\(item.label.debugDescription) "
+                    + "pid=\(callbackApplication.processIdentifier) "
+                    + "bundleURL=\(callbackApplication.bundleURL?.path.debugDescription ?? "nil") "
+                    + "accepted=\(activated)"
+            )
+            completion(true)
+            return
+        }
+
+        let attempt = 13 - attemptsRemaining
+        DiagnosticLogger.shared.log(
+            "application activation retry item=\(item.label.debugDescription) "
+                + "attempt=\(attempt + 1)/13 expectedURL=\(expectedPath.debugDescription)"
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.activateLaunchedApplication(
+                expectedURL: expectedURL,
+                callbackApplication: callbackApplication,
+                item: item,
+                attemptsRemaining: attemptsRemaining - 1,
+                completion: completion
+            )
+        }
+    }
+
+    private func normalizedApplicationPath(_ url: URL) -> String {
+        url.standardizedFileURL.resolvingSymlinksInPath().path
     }
 
     private func launchURL(for item: MenuBarItem) -> URL? {
