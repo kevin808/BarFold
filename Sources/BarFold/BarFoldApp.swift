@@ -605,7 +605,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.element
         ].compactMap { $0 }
 
-        for root in roots {
+        if let command = roots.lazy.compactMap({
+            self.findMenuItem(in: $0, titlePrefixes: titlePrefixes, depthRemaining: 6)
+        }).first {
+            let result = AXUIElementPerformAction(command, kAXPressAction as CFString)
+            DiagnosticLogger.shared.log(
+                "application command AXPress item=\(item.label.debugDescription) "
+                    + "result=\(result.rawValue)"
+            )
+            return result == .success
+        }
+
+        guard let extras = roots.first(where: {
+            accessibilityString(attribute: kAXRoleAttribute, from: $0) == (kAXMenuBarRole as String)
+                && accessibilityChildren(of: $0).contains(where: {
+                    accessibilityString(attribute: kAXRoleAttribute, from: $0) == (kAXMenuBarItemRole as String)
+                })
+        }),
+        let statusItem = accessibilityChildren(of: extras).first else {
+            return false
+        }
+
+        let statusPressResult = AXUIElementPerformAction(statusItem, kAXPressAction as CFString)
+        DiagnosticLogger.shared.log(
+            "application status menu preparation item=\(item.label.debugDescription) "
+                + "result=\(statusPressResult.rawValue)"
+        )
+        Thread.sleep(forTimeInterval: 0.05)
+
+        let preparedRoots = [extras, statusItem]
+        for root in preparedRoots {
             guard let command = findMenuItem(
                 in: root,
                 titlePrefixes: titlePrefixes,
@@ -618,6 +647,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             return result == .success
         }
+
+        // AXPress may open the menu even when it reports actionUnsupported.
+        // Toggle it closed before the retry path runs.
+        _ = AXUIElementPerformAction(statusItem, kAXPressAction as CFString)
         return false
     }
 
