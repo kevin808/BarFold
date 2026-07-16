@@ -468,8 +468,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         configuration.addsToRecentItems = false
+        let sourceApplicationURL = NSRunningApplication(processIdentifier: item.pid)?.bundleURL
+        let createsNewApplicationInstance = sourceApplicationURL.map {
+            normalizedApplicationPath($0) != normalizedApplicationPath(applicationURL)
+        } ?? false
+        if createsNewApplicationInstance {
+            // VideoFusion exposes its menu-bar item from a nested TrayHelper
+            // bundle that shares the outer application's bundle identifier.
+            // LaunchServices otherwise reuses that helper instead of starting
+            // the real application, so explicitly request a new instance.
+            configuration.createsNewApplicationInstance = true
+        }
         DiagnosticLogger.shared.log(
-            "application launching item=\(item.label.debugDescription) url=\(applicationURL.path.debugDescription)"
+            "application launching item=\(item.label.debugDescription) "
+                + "url=\(applicationURL.path.debugDescription) "
+                + "sourceURL=\(sourceApplicationURL?.path.debugDescription ?? "nil") "
+                + "createsNewInstance=\(createsNewApplicationInstance)"
         )
         NSWorkspace.shared.openApplication(
             at: applicationURL,
