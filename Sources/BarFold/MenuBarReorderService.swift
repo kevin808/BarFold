@@ -84,6 +84,7 @@ final class MenuBarReorderService: @unchecked Sendable {
         intoHiddenSection hidden: Bool,
         separatorFrame: CGRect,
         separatorWindowID: CGWindowID?,
+        preserveCursor: Bool = true,
         completion: @escaping (Bool) -> Void
     ) {
         queue.async {
@@ -130,7 +131,7 @@ final class MenuBarReorderService: @unchecked Sendable {
                     return
                 }
 
-                if cursorSession == nil {
+                if preserveCursor, cursorSession == nil {
                     cursorSession = CursorPreservationSession(diagnosticContext: context)
                 }
 

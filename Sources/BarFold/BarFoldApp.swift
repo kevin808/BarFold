@@ -335,7 +335,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item: request.item,
             intoHiddenSection: request.folded,
             separatorFrame: separatorFrame,
-            separatorWindowID: hidingController.separatorWindowID
+            separatorWindowID: hidingController.separatorWindowID,
+            preserveCursor: false
         ) { [weak self] succeeded in
             guard let self else { return }
             let nextSucceededIDs = succeeded
@@ -371,6 +372,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for id in failedIDs {
             let retryCount = placementRetryCounts[id, default: 0] + 1
             placementRetryCounts[id] = retryCount
+            // Automatic placement is best-effort. A permanently incompatible
+            // menu item must not keep generating synthetic drags forever; the
+            // user can retry by changing its setting or restarting the app.
+            guard retryCount <= 1 else {
+                placementRetryAfter.removeValue(forKey: id)
+                DiagnosticLogger.shared.log(
+                    "placement synchronization retry stopped id=\(id.debugDescription) "
+                        + "reason=max-automatic-retries"
+                )
+                continue
+            }
             let retryDelay = min(10.0 * pow(2.0, Double(retryCount - 1)), 120.0)
             placementRetryAfter[id] = now.addingTimeInterval(retryDelay)
             DiagnosticLogger.shared.log(
