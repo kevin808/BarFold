@@ -25,15 +25,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activationEventMonitor: Any?
     private var inputSourceObserver: NSObjectProtocol?
     private var activationCollapseTimer: Timer?
-    private var isPlacementSynchronizationRunning = false
-    private var placementRetryAfter: [String: Date] = [:]
-    private var placementRetryCounts: [String: Int] = [:]
-
-    private struct PlacementRequest {
-        let item: MenuBarItem
-        let folded: Bool
-        let reason: String
-    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DiagnosticLogger.shared.ensureLogFile()
@@ -72,9 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             self.openApplication(item: item, completion: completion)
-        }
-        model.onScanCompleted = { [weak self] items, discoveredItems in
-            self?.synchronizePlacementIfNeeded(items: items, discoveredItems: discoveredItems)
         }
         model.onRequestFoldChange = { [weak self] item, folded, completion in
             guard let self else {
@@ -245,160 +233,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsController.show()
         if isMenuBarLayoutReady {
             model.scan()
-        }
-    }
-
-    private func synchronizePlacementIfNeeded(
-        items: [MenuBarItem],
-        discoveredItems: [MenuBarItem]
-    ) {
-        guard isMenuBarLayoutReady, !isPlacementSynchronizationRunning else { return }
-
-        let currentIDs = Set(items.map(\.id))
-        placementRetryAfter = placementRetryAfter.filter { currentIDs.contains($0.key) }
-        placementRetryCounts = placementRetryCounts.filter { currentIDs.contains($0.key) }
-
-        let now = Date()
-        let discoveredIDs = Set(discoveredItems.map(\.id))
-        let dueRetryIDs = Set(placementRetryAfter.compactMap { id, retryAfter in
-            retryAfter <= now ? id : nil
-        })
-        let candidateIDs = discoveredIDs.union(dueRetryIDs)
-        let requests = items.compactMap { item -> PlacementRequest? in
-            guard candidateIDs.contains(item.id), !item.isLockedInFirstRow else { return nil }
-            return PlacementRequest(
-                item: item,
-                folded: model.foldedIDs.contains(item.id),
-                reason: discoveredIDs.contains(item.id) ? "discovered-or-restarted" : "retry"
-            )
-        }
-        guard !requests.isEmpty else { return }
-
-        isPlacementSynchronizationRunning = true
-        let requestIDs = Set(requests.map(\.item.id))
-        model.beginPlacementSynchronization(for: requestIDs)
-        finishActivationSession(reason: "placement-synchronization-started")
-        shelfController.close()
-        hidingController.expandForOrganization()
-        DiagnosticLogger.shared.log(
-            "placement synchronization started count=\(requests.count) discovered=\(discoveredIDs.count) "
-                + "retries=\(dueRetryIDs.count)"
-        )
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-            self?.performPlacementSynchronization(
-                requests: requests,
-                index: 0,
-                succeededIDs: [],
-                failedIDs: []
-            )
-        }
-    }
-
-    private func performPlacementSynchronization(
-        requests: [PlacementRequest],
-        index: Int,
-        succeededIDs: Set<String>,
-        failedIDs: Set<String>
-    ) {
-        guard index < requests.count else {
-            finishPlacementSynchronization(
-                requests: requests,
-                succeededIDs: succeededIDs,
-                failedIDs: failedIDs
-            )
-            return
-        }
-
-        let request = requests[index]
-        guard let separatorFrame = hidingController.separatorFrameInQuartzCoordinates() else {
-            DiagnosticLogger.shared.log(
-                "placement synchronization failed item=\(request.item.label.debugDescription) "
-                    + "stage=separator-frame-unavailable"
-            )
-            performPlacementSynchronization(
-                requests: requests,
-                index: index + 1,
-                succeededIDs: succeededIDs,
-                failedIDs: failedIDs.union([request.item.id])
-            )
-            return
-        }
-
-        let destinationName = request.folded ? "second-row" : "first-row"
-        DiagnosticLogger.shared.log(
-            "placement synchronization item=\(request.item.label.debugDescription) "
-                + "id=\(request.item.id.debugDescription) destination=\(destinationName) "
-                + "reason=\(request.reason)"
-        )
-        reorderService.move(
-            item: request.item,
-            intoHiddenSection: request.folded,
-            separatorFrame: separatorFrame,
-            separatorWindowID: hidingController.separatorWindowID,
-            preserveCursor: false
-        ) { [weak self] succeeded in
-            guard let self else { return }
-            let nextSucceededIDs = succeeded
-                ? succeededIDs.union([request.item.id])
-                : succeededIDs
-            let nextFailedIDs = succeeded
-                ? failedIDs
-                : failedIDs.union([request.item.id])
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                self.performPlacementSynchronization(
-                    requests: requests,
-                    index: index + 1,
-                    succeededIDs: nextSucceededIDs,
-                    failedIDs: nextFailedIDs
-                )
-            }
-        }
-    }
-
-    private func finishPlacementSynchronization(
-        requests: [PlacementRequest],
-        succeededIDs: Set<String>,
-        failedIDs: Set<String>
-    ) {
-        hidingController.collapse()
-        let requestIDs = Set(requests.map(\.item.id))
-        let now = Date()
-
-        for id in succeededIDs {
-            placementRetryAfter.removeValue(forKey: id)
-            placementRetryCounts.removeValue(forKey: id)
-        }
-        for id in failedIDs {
-            let retryCount = placementRetryCounts[id, default: 0] + 1
-            placementRetryCounts[id] = retryCount
-            // Automatic placement is best-effort. A permanently incompatible
-            // menu item must not keep generating synthetic drags forever; the
-            // user can retry by changing its setting or restarting the app.
-            guard retryCount <= 1 else {
-                placementRetryAfter.removeValue(forKey: id)
-                DiagnosticLogger.shared.log(
-                    "placement synchronization retry stopped id=\(id.debugDescription) "
-                        + "reason=max-automatic-retries"
-                )
-                continue
-            }
-            let retryDelay = min(10.0 * pow(2.0, Double(retryCount - 1)), 120.0)
-            placementRetryAfter[id] = now.addingTimeInterval(retryDelay)
-            DiagnosticLogger.shared.log(
-                "placement synchronization retry scheduled id=\(id.debugDescription) "
-                    + "attempt=\(retryCount + 1) delay=\(retryDelay)"
-            )
-        }
-
-        model.finishPlacementSynchronization(for: requestIDs)
-        isPlacementSynchronizationRunning = false
-        DiagnosticLogger.shared.log(
-            "placement synchronization completed total=\(requests.count) "
-                + "succeeded=\(succeededIDs.count) failed=\(failedIDs.count)"
-        )
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
-            self?.model.scan()
         }
     }
 

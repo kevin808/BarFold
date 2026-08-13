@@ -9,7 +9,6 @@ final class AppModel: ObservableObject {
     @Published private(set) var isScanning = false
     @Published private(set) var foldedIDs: Set<String>
     @Published private(set) var pendingFoldIDs: Set<String> = []
-    @Published private(set) var synchronizingPlacementIDs: Set<String> = []
     @Published private(set) var launchAtLogin = false
     @Published var lastError: String?
     @Published var appLanguage: AppLanguage {
@@ -26,7 +25,6 @@ final class AppModel: ObservableObject {
     var onRequestFoldChange: ((MenuBarItem, Bool, @escaping (Bool) -> Void) -> Void)?
     var onRequestActivate: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
     var onRequestOpenApplication: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
-    var onScanCompleted: (([MenuBarItem], [MenuBarItem]) -> Void)?
     var onLanguageChange: (() -> Void)?
 
     private let scanner = MenuBarScanner()
@@ -65,7 +63,7 @@ final class AppModel: ObservableObject {
     }
 
     var isPlacementBusy: Bool {
-        !pendingFoldIDs.isEmpty || !synchronizingPlacementIDs.isEmpty
+        !pendingFoldIDs.isEmpty
     }
 
     func scan(promptForPermission: Bool = false) {
@@ -117,20 +115,10 @@ final class AppModel: ObservableObject {
         let discoveredItems = items.filter { discoveredIDs.contains($0.id) }
         if !discoveredItems.isEmpty {
             DiagnosticLogger.shared.log(
-                "placement discovery changed=\(discoveredItems.count) ids="
+                "scan discovery changed=\(discoveredItems.count) action=observe-only ids="
                     + discoveredItems.map(\.id).joined(separator: ",").debugDescription
             )
         }
-        onScanCompleted?(items, discoveredItems)
-    }
-
-    func beginPlacementSynchronization(for ids: Set<String>) {
-        guard !ids.isEmpty else { return }
-        synchronizingPlacementIDs.formUnion(ids)
-    }
-
-    func finishPlacementSynchronization(for ids: Set<String>) {
-        synchronizingPlacementIDs.subtract(ids)
     }
 
     func requestAccessibility() {

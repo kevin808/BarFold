@@ -299,8 +299,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                         .help(model.text(.lockedFirstRowHelp))
                         .accessibilityLabel(model.text(.lockedFirstRowAccessibility))
-                } else if model.pendingFoldIDs.contains(item.id)
-                    || model.synchronizingPlacementIDs.contains(item.id) {
+                } else if model.pendingFoldIDs.contains(item.id) {
                     ProgressView()
                         .controlSize(.small)
                 } else {
