@@ -19,7 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsController: SettingsWindowController!
     private var hidingController: MenuBarHidingController!
     private let reorderService = MenuBarReorderService()
-    private var refreshTimer: Timer?
     private var isMenuBarLayoutReady = false
     private var activationSessionID: UUID?
     private var activationEventMonitor: Any?
@@ -125,22 +124,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DiagnosticLogger.shared.log("startup layout ready delay=0.75s")
             self.model.scan()
         }
-        for (index, delay) in [2.0, 5.0, 10.0].enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                DiagnosticLogger.shared.log("startup follow-up scan index=\(index + 1) delay=\(delay)")
-                self?.model.scan()
-            }
-        }
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.model.scan() }
-        }
         scheduleDiagnosticItemActionIfRequested()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         finishActivationSession(reason: "app-terminating")
         DiagnosticLogger.shared.log("app terminating")
-        refreshTimer?.invalidate()
     }
 
     private func prepareStatusItemPlacement() {
