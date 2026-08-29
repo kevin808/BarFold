@@ -24,6 +24,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activationEventMonitor: Any?
     private var inputSourceObserver: NSObjectProtocol?
     private var activationCollapseTimer: Timer?
+    private var isStartupPlacementRestoreRunning = false
+    private var hasAttemptedStartupPlacementRestore = false
+    private var pendingStartupPlacementItems: [MenuBarItem]?
+
+    private struct PlacementRequest {
+        let item: MenuBarItem
+        let folded: Bool
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DiagnosticLogger.shared.ensureLogFile()
@@ -40,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hidingController = MenuBarHidingController()
         settingsController = SettingsWindowController(model: model) { [weak self] in
             guard let self,
-                  self.model.pendingFoldIDs.isEmpty else { return }
+                  !self.model.isPlacementBusy else { return }
             self.finishActivationSession(reason: "settings-closed")
         }
         shelfController = ShelfPanelController(model: model) { [weak self] in
@@ -62,6 +70,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             self.openApplication(item: item, completion: completion)
+        }
+        model.onInitialScanCompleted = { [weak self] items in
+            self?.restoreStartupPlacementWhenReady(items: items)
         }
         model.onRequestFoldChange = { [weak self] item, folded, completion in
             guard let self else {
@@ -122,7 +133,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let statusFrame = self.statusItem.button?.window?.frame.debugDescription ?? "nil"
             DiagnosticLogger.shared.log("status item frame=\(statusFrame)")
             DiagnosticLogger.shared.log("startup layout ready delay=0.75s")
-            self.model.scan()
+            if let pendingItems = self.pendingStartupPlacementItems {
+                self.pendingStartupPlacementItems = nil
+                self.restoreStartupPlacement(items: pendingItems)
+            } else {
+                self.model.scan()
+            }
         }
         scheduleDiagnosticItemActionIfRequested()
     }
@@ -223,6 +239,123 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if isMenuBarLayoutReady {
             model.scan()
         }
+    }
+
+    private func restoreStartupPlacementWhenReady(items: [MenuBarItem]) {
+        guard isMenuBarLayoutReady else {
+            pendingStartupPlacementItems = items
+            DiagnosticLogger.shared.log(
+                "startup placement restore deferred reason=layout-not-ready items=\(items.count)"
+            )
+            return
+        }
+        restoreStartupPlacement(items: items)
+    }
+
+    private func restoreStartupPlacement(items: [MenuBarItem]) {
+        guard !hasAttemptedStartupPlacementRestore,
+              !isStartupPlacementRestoreRunning else { return }
+        hasAttemptedStartupPlacementRestore = true
+
+        let requests = items
+            .filter { !$0.isLockedInFirstRow }
+            .map { item in
+                PlacementRequest(item: item, folded: model.foldedIDs.contains(item.id))
+            }
+        guard !requests.isEmpty else {
+            DiagnosticLogger.shared.log("startup placement restore skipped reason=no-movable-items")
+            return
+        }
+
+        isStartupPlacementRestoreRunning = true
+        let requestIDs = Set(requests.map(\.item.id))
+        model.beginPlacementSynchronization(for: requestIDs)
+        finishActivationSession(reason: "startup-placement-restore")
+        shelfController.close()
+        hidingController.expandForOrganization()
+        DiagnosticLogger.shared.log("startup placement restore started count=\(requests.count)")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.performStartupPlacementRestore(
+                requests: requests,
+                index: 0,
+                succeededIDs: [],
+                failedIDs: []
+            )
+        }
+    }
+
+    private func performStartupPlacementRestore(
+        requests: [PlacementRequest],
+        index: Int,
+        succeededIDs: Set<String>,
+        failedIDs: Set<String>
+    ) {
+        guard index < requests.count else {
+            finishStartupPlacementRestore(
+                requests: requests,
+                succeededIDs: succeededIDs,
+                failedIDs: failedIDs
+            )
+            return
+        }
+
+        let request = requests[index]
+        guard let separatorFrame = hidingController.separatorFrameInQuartzCoordinates() else {
+            DiagnosticLogger.shared.log(
+                "startup placement restore failed item=\(request.item.label.debugDescription) "
+                    + "stage=separator-frame-unavailable"
+            )
+            performStartupPlacementRestore(
+                requests: requests,
+                index: index + 1,
+                succeededIDs: succeededIDs,
+                failedIDs: failedIDs.union([request.item.id])
+            )
+            return
+        }
+
+        let destinationName = request.folded ? "second-row" : "first-row"
+        DiagnosticLogger.shared.log(
+            "startup placement restore item=\(request.item.label.debugDescription) "
+                + "id=\(request.item.id.debugDescription) destination=\(destinationName)"
+        )
+        reorderService.move(
+            item: request.item,
+            intoHiddenSection: request.folded,
+            separatorFrame: separatorFrame,
+            separatorWindowID: hidingController.separatorWindowID
+        ) { [weak self] succeeded in
+            guard let self else { return }
+            let nextSucceededIDs = succeeded
+                ? succeededIDs.union([request.item.id])
+                : succeededIDs
+            let nextFailedIDs = succeeded
+                ? failedIDs
+                : failedIDs.union([request.item.id])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.performStartupPlacementRestore(
+                    requests: requests,
+                    index: index + 1,
+                    succeededIDs: nextSucceededIDs,
+                    failedIDs: nextFailedIDs
+                )
+            }
+        }
+    }
+
+    private func finishStartupPlacementRestore(
+        requests: [PlacementRequest],
+        succeededIDs: Set<String>,
+        failedIDs: Set<String>
+    ) {
+        hidingController.collapse()
+        model.finishPlacementSynchronization(for: Set(requests.map(\.item.id)))
+        isStartupPlacementRestoreRunning = false
+        DiagnosticLogger.shared.log(
+            "startup placement restore completed total=\(requests.count) "
+                + "succeeded=\(succeededIDs.count) failed=\(failedIDs.count) action=stop"
+        )
     }
 
     private func beginActivationSession(

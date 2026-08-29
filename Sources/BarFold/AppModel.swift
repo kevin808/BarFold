@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isScanning = false
     @Published private(set) var foldedIDs: Set<String>
     @Published private(set) var pendingFoldIDs: Set<String> = []
+    @Published private(set) var synchronizingPlacementIDs: Set<String> = []
     @Published private(set) var launchAtLogin = false
     @Published var lastError: String?
     @Published var appLanguage: AppLanguage {
@@ -25,12 +26,14 @@ final class AppModel: ObservableObject {
     var onRequestFoldChange: ((MenuBarItem, Bool, @escaping (Bool) -> Void) -> Void)?
     var onRequestActivate: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
     var onRequestOpenApplication: ((MenuBarItem, @escaping (Bool) -> Void) -> Void)?
+    var onInitialScanCompleted: (([MenuBarItem]) -> Void)?
     var onLanguageChange: (() -> Void)?
 
     private let scanner = MenuBarScanner()
     private let defaults = UserDefaults.standard
     private let scanQueue = DispatchQueue(label: "com.local.BarFold.scan", qos: .utility)
     private var placementDiscoveryTracker = PlacementDiscoveryTracker()
+    private var hasDeliveredInitialScan = false
 
     private enum Keys {
         static let foldedIDs = "foldedItemIDs"
@@ -63,7 +66,7 @@ final class AppModel: ObservableObject {
     }
 
     var isPlacementBusy: Bool {
-        !pendingFoldIDs.isEmpty
+        !pendingFoldIDs.isEmpty || !synchronizingPlacementIDs.isEmpty
     }
 
     func scan(promptForPermission: Bool = false) {
@@ -119,6 +122,20 @@ final class AppModel: ObservableObject {
                     + discoveredItems.map(\.id).joined(separator: ",").debugDescription
             )
         }
+
+        if !hasDeliveredInitialScan, !items.isEmpty {
+            hasDeliveredInitialScan = true
+            onInitialScanCompleted?(items)
+        }
+    }
+
+    func beginPlacementSynchronization(for ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        synchronizingPlacementIDs.formUnion(ids)
+    }
+
+    func finishPlacementSynchronization(for ids: Set<String>) {
+        synchronizingPlacementIDs.subtract(ids)
     }
 
     func requestAccessibility() {
