@@ -113,7 +113,7 @@ git push origin main
 git push origin v0.5.10
 ```
 
-GitHub-hosted builds are ad-hoc signed unless a signing certificate is added to the workflow. For frictionless public distribution, use a Developer ID Application certificate and notarize the release outside the default workflow.
+`main` and pull request builds continue to use ad-hoc signing. Tag releases require these GitHub Actions Secrets: `APPLE_DEVELOPER_IDENTITY`, `APPLE_TEAM_ID`, `APPLE_DEVELOPER_CERTIFICATE_BASE64`, `APPLE_DEVELOPER_CERTIFICATE_PASSWORD`, `APPLE_BUILD_KEYCHAIN_PASSWORD`, `APPLE_ID`, and `APPLE_APP_SPECIFIC_PASSWORD`. After configuring them, push a version tag such as `v0.5.16` and the workflow signs, notarizes, and publishes the release automatically.
 
 ## Diagnostics
 

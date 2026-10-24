@@ -26,7 +26,13 @@ if [[ -z "$SIGNING_IDENTITY" ]]; then
 fi
 
 if [[ -n "$SIGNING_IDENTITY" ]] && security find-identity -v -p codesigning | grep -Fq "$SIGNING_IDENTITY"; then
-    codesign --force --deep --options runtime --timestamp=none --sign "$SIGNING_IDENTITY" "$APP_DIR"
+    # Developer ID builds use the hardened runtime and a secure timestamp so
+    # the resulting bundle can be submitted to Apple's notarization service.
+    if [[ "$SIGNING_IDENTITY" == Developer\ ID\ Application:* ]]; then
+        codesign --force --deep --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$APP_DIR"
+    else
+        codesign --force --deep --options runtime --timestamp=none --sign "$SIGNING_IDENTITY" "$APP_DIR"
+    fi
 else
     echo "warning: signing identity not found; using ad-hoc signature" >&2
     codesign --force --deep --sign - "$APP_DIR"

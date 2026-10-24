@@ -103,7 +103,7 @@ BARFOLD_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
 [`.github/workflows/build.yml`](.github/workflows/build.yml) 已配置好公开仓库所需的自动流程：
 
 - 推送代码和提交 Pull Request 时，以“警告视为错误”的方式编译，打包应用，验证签名和 ZIP，并上传 Actions 构建产物。
-- 推送符合 `v*` 格式的标签时，自动创建或更新 GitHub Release，并附加 ZIP。
+- 推送符合 `v*` 格式的标签时，使用 Developer ID 签名、提交 Apple 公证、附加公证票据，并创建 GitHub Release。
 - 标签必须与 `CFBundleShortVersionString` 一致。例如应用版本为 `0.5.10` 时，标签必须为 `v0.5.10`。
 
 配置 GitHub 远程仓库后，可通过以下命令发布：
@@ -113,7 +113,7 @@ git push origin main
 git push origin v0.5.10
 ```
 
-默认的 GitHub 托管构建使用 ad-hoc 签名。若需要让公开下载版本免除 Gatekeeper 提示，应使用 Developer ID Application 证书，并在默认流程之外增加 Apple 公证步骤。
+`main` 和 PR 构建继续使用 ad-hoc 签名。标签发布需要配置以下 GitHub Actions Secrets：`APPLE_DEVELOPER_IDENTITY`、`APPLE_TEAM_ID`、`APPLE_DEVELOPER_CERTIFICATE_BASE64`、`APPLE_DEVELOPER_CERTIFICATE_PASSWORD`、`APPLE_BUILD_KEYCHAIN_PASSWORD`、`APPLE_ID` 和 `APPLE_APP_SPECIFIC_PASSWORD`。配置后推送 `v0.5.16` 这类版本标签，工作流会自动签名、公证并发布。
 
 ## 诊断日志
 
