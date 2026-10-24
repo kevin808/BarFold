@@ -78,7 +78,6 @@ jobs:
       APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.APPLE_BUILD_KEYCHAIN_PASSWORD }}
-      KEYCHAIN_PATH: ${{ runner.temp }}/build.keychain-db
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -94,6 +93,8 @@ jobs:
           CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_BASE64 }}
         run: |
           set -euo pipefail
+          export KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
           test -n "$SIGNING_IDENTITY"; test -n "$TEAM_ID"; test -n "$APPLE_ID"
           test -n "$APP_SPECIFIC_PASSWORD"; test -n "$CERTIFICATE_BASE64"
           test -n "$CERTIFICATE_PASSWORD"; test -n "$KEYCHAIN_PASSWORD"
